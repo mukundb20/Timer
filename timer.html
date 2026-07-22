@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Timer">
+<meta name="theme-color" content="#F2F2F7">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Timer</title>
+<style>
+/* ── Reset ────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box; margin: 0; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%; width: 100%;
+  background: #F2F2F7;
+}
+
+/* ── Root layout: fixed column, never scrolls ─────────────── */
+body {
+  font-family: -apple-system, 'Helvetica Neue', sans-serif;
+  color: #1C1C1E;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  /* iOS safe areas */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ── Nav bar ──────────────────────────────────────────────── */
+.nav-bar {
+  flex-shrink: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  background: rgba(242,242,247,0.92);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid rgba(60,60,67,0.15);
+}
+.nav-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #1C1C1E;
+}
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.nav-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 6px;
+  color: #007AFF;
+  line-height: 1;
+  border-radius: 8px;
+  min-width: 34px;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Main content: fills remaining height, no overflow ─────── */
+.main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 14px 0;
+  gap: 6px;
+  overflow: hidden;
+}
+
+/* ── Quick-select chips — single row ──────────────────────── */
+.chip-row {
+  flex-shrink: 0;
+  display: flex;
+  gap: 5px;
+}
+.chip {
+  flex: 1;
+  height: 34px;
+  border-radius: 9px;
+  border: none;
+  background: #fff;
+  color: #007AFF;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.06);
+  transition: transform 0.1s, background 0.12s;
+  -webkit-user-select: none; user-select: none;
+}
+.chip:active  { transform: scale(0.9); background: #E5E5EA; }
+.chip.active  { background: #007AFF; color: #fff; box-shadow: 0 2px 6px rgba(0,122,255,0.3); }
+
+/* ── Custom duration row ──────────────────────────────────── */
+.custom-row {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 7px 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.06);
+}
+.custom-row input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  border: 1.5px solid #E5E5EA;
+  border-radius: 8px;
+  background: #F2F2F7;
+  color: #1C1C1E;
+  font-size: 16px; /* ≥16 prevents iOS auto-zoom */
+  font-family: inherit;
+  font-weight: 500;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.custom-row input:focus { border-color: #007AFF; background: #fff; }
+.custom-row .unit {
+  font-size: 0.75rem;
+  color: #8E8E93;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.iobtn {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity 0.12s, transform 0.1s;
+  -webkit-user-select: none; user-select: none;
+}
+.iobtn:active { transform: scale(0.93); opacity: 0.8; }
+.iobtn-set { background: #E5E5EA; color: #1C1C1E; }
+.iobtn-add { background: #34C759; color: #fff; }
+.hint-text {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  color: #AEAEB2;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* ── Clock: fills all remaining vertical space ────────────── */
+.clock-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.clock-wrap {
+  position: relative;
+  /* Size from whichever dimension is tighter */
+  width:  clamp(130px, 36vmin, 196px);
+  height: clamp(130px, 36vmin, 196px);
+}
+svg.ring {
+  width: 100%; height: 100%;
+  transform: rotate(-90deg);
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 3px 10px rgba(0,122,255,0.1));
+}
+.ring-track    { fill: none; stroke: #E5E5EA; stroke-width: 11; }
+.ring-progress {
+  fill: none;
+  stroke: #007AFF;
+  stroke-width: 11;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.95s cubic-bezier(0.4,0,0.2,1),
+              stroke 0.3s ease;
+}
+.ring-progress.urgent { stroke: #FF3B30; }
+
+.clock-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+.time-display {
+  font-size: clamp(2rem, 9vmin, 3.2rem);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  color: #1C1C1E;
+  line-height: 1;
+  transition: color 0.3s;
+}
+.time-display.urgent { color: #FF3B30; }
+.time-label {
+  font-size: clamp(0.56rem, 1.5vmin, 0.68rem);
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #AEAEB2;
+}
+
+/* Append badge */
+.append-badge {
+  position: absolute;
+  top: 6px; right: -2px;
+  background: #34C759;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.22s, transform 0.22s;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(52,199,89,0.35);
+}
+.append-badge.show { opacity: 1; transform: translateY(0); }
+
+/* ── Controls ─────────────────────────────────────────────── */
+.controls {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.btn-primary {
+  width: 100%;
+  height: 50px;
+  border-radius: 14px;
+  border: none;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.12s;
+  -webkit-user-select: none; user-select: none;
+}
+.btn-primary:active  { transform: scale(0.97); opacity: 0.88; }
+.btn-primary:disabled { opacity: 0.3; pointer-events: none; }
+.btn-start { background: #007AFF; color: #fff; box-shadow: 0 3px 14px rgba(0,122,255,0.3); }
+.btn-running { background: #FF9500; color: #fff; box-shadow: 0 3px 14px rgba(255,149,0,0.3); }
+
+.btn-row {
+  display: flex;
+  gap: 6px;
+}
+.btn-secondary {
+  flex: 1;
+  height: 42px;
+  border-radius: 12px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.12s;
+  -webkit-user-select: none; user-select: none;
+}
+.btn-secondary:active  { transform: scale(0.95); opacity: 0.8; }
+.btn-secondary:disabled { opacity: 0.3; pointer-events: none; }
+.btn-pause { background: #34C759; color: #fff; }
+.btn-reset { background: #E5E5EA; color: #3C3C43; }
+
+/* Status */
+.status-bar {
+  flex-shrink: 0;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: #8E8E93;
+  text-align: center;
+  min-height: 16px;
+  padding-bottom: 2px;
+}
+.status-bar.done {
+  color: #FF3B30;
+  font-weight: 700;
+  animation: pulse 0.7s ease-in-out infinite alternate;
+}
+@keyframes pulse { from { opacity: 0.45; } to { opacity: 1; } }
+
+/* ── Bottom toolbar — sound toggles ───────────────────────── */
+.bottom-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 50px;
+  padding: 0 20px;
+  background: rgba(242,242,247,0.92);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 0.5px solid rgba(60,60,67,0.15);
+}
+.sound-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  -webkit-user-select: none; user-select: none;
+}
+.sound-toggle-label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #3C3C43;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.sound-icon { font-size: 0.95rem; }
+
+/* iOS-style toggle switch */
+.sw { position: relative; width: 44px; height: 26px; flex-shrink: 0; }
+.sw input { opacity: 0; width: 0; height: 0; position: absolute; }
+.sw-track {
+  position: absolute; inset: 0;
+  border-radius: 26px;
+  background: #D1D1D6;
+  cursor: pointer;
+  transition: background 0.22s;
+}
+.sw input:checked + .sw-track { background: #34C759; }
+.sw-thumb {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.28);
+  transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+  pointer-events: none;
+}
+.sw input:checked ~ .sw-thumb { transform: translateX(18px); }
+
+/* ── iOS unlock bottom sheet ──────────────────────────────── */
+#unlockOverlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.38);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 9999;
+  padding-bottom: env(safe-area-inset-bottom);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.unlock-sheet {
+  background: #fff;
+  border-radius: 28px 28px 0 0;
+  padding: 28px 22px 32px;
+  width: 100%;
+  max-width: 480px;
+  text-align: center;
+  animation: slideUp 0.32s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.unlock-icon { font-size: 2.6rem; margin-bottom: 10px; }
+.unlock-title { font-size: 1.2rem; font-weight: 700; color: #1C1C1E; margin-bottom: 5px; }
+.unlock-sub   { font-size: 0.84rem; color: #8E8E93; margin-bottom: 24px; line-height: 1.4; }
+.unlock-btn   {
+  width: 100%; height: 52px;
+  border-radius: 14px; border: none;
+  background: #007AFF; color: #fff;
+  font-size: 1rem; font-weight: 700; font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,122,255,0.28);
+}
+</style>
+</head>
+<body>
+
+<!-- iOS audio unlock sheet -->
+<div id="unlockOverlay">
+  <div class="unlock-sheet">
+    <div class="unlock-icon">🔔</div>
+    <div class="unlock-title">Enable Sounds</div>
+    <div class="unlock-sub">iOS requires a tap to activate audio.</div>
+    <button class="unlock-btn" id="unlockBtn">Get Started</button>
+  </div>
+</div>
+
+<!-- Nav bar -->
+<nav class="nav-bar">
+  <span class="nav-title">⏱ Timer</span>
+  <div class="nav-right">
+    <button class="nav-icon-btn" id="muteAllBtn" title="Mute all">🔊</button>
+  </div>
+</nav>
+
+<!-- Main content (no scroll) -->
+<main class="main">
+
+  <!-- Quick-select: single row of 7 chips -->
+  <div class="chip-row">
+    <button class="chip" data-sec="5">5s</button>
+    <button class="chip" data-sec="10">10s</button>
+    <button class="chip" data-sec="15">15s</button>
+    <button class="chip" data-sec="30">30s</button>
+    <button class="chip active" data-sec="60">1m</button>
+    <button class="chip" data-sec="120">2m</button>
+    <button class="chip" data-sec="300">5m</button>
+  </div>
+
+  <!-- Custom duration: inline, no card wrapper -->
+  <div class="custom-row">
+    <input type="number" id="customInput" inputmode="numeric"
+           pattern="[0-9]*" min="1" max="3600" placeholder="seconds" />
+    <span class="unit">sec</span>
+    <button class="iobtn iobtn-set" id="setCustomBtn">Set</button>
+    <button class="iobtn iobtn-add" id="appendBtn">＋Add</button>
+  </div>
+  <p class="hint-text">Set replaces · ＋Add appends to current time</p>
+
+  <!-- Clock: flex:1 fills remaining height -->
+  <div class="clock-section">
+    <div class="clock-wrap">
+      <svg class="ring" viewBox="0 0 200 200">
+        <circle class="ring-track"    cx="100" cy="100" r="86"/>
+        <circle class="ring-progress" id="ringFill" cx="100" cy="100" r="86"/>
+      </svg>
+      <div class="clock-center">
+        <div class="time-display" id="timeDisplay">01:00</div>
+        <div class="time-label"   id="timeLabel">ready</div>
+      </div>
+      <div class="append-badge" id="appendBadge"></div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn-primary btn-start" id="startBtn">Start</button>
+    <div class="btn-row">
+      <button class="btn-secondary btn-pause" id="pauseBtn" disabled>Pause</button>
+      <button class="btn-secondary btn-reset" id="resetBtn">Reset</button>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-bar" id="status">Ready to start</div>
+
+</main>
+
+<!-- Bottom toolbar: sound toggles -->
+<div class="bottom-bar">
+  <label class="sound-toggle">
+    <span class="sound-toggle-label"><span class="sound-icon">🕐</span> Tick</span>
+    <div class="sw">
+      <input type="checkbox" id="tickToggle" checked>
+      <div class="sw-track"></div>
+      <div class="sw-thumb"></div>
+    </div>
+  </label>
+  <label class="sound-toggle">
+    <span class="sound-toggle-label"><span class="sound-icon">🎵</span> Jingle</span>
+    <div class="sw">
+      <input type="checkbox" id="jingleToggle" checked>
+      <div class="sw-track"></div>
+      <div class="sw-thumb"></div>
+    </div>
+  </label>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────────
+const R    = 86;
+const CIRC = 2 * Math.PI * R;
+
+// ── DOM ────────────────────────────────────────────────────────────────────────
+const ringFill      = document.getElementById('ringFill');
+const timeDisplay   = document.getElementById('timeDisplay');
+const timeLabel     = document.getElementById('timeLabel');
+const startBtn      = document.getElementById('startBtn');
+const pauseBtn      = document.getElementById('pauseBtn');
+const resetBtn      = document.getElementById('resetBtn');
+const statusEl      = document.getElementById('status');
+const tickToggle    = document.getElementById('tickToggle');
+const jingleToggle  = document.getElementById('jingleToggle');
+const customInput   = document.getElementById('customInput');
+const setCustomBtn  = document.getElementById('setCustomBtn');
+const appendBtn     = document.getElementById('appendBtn');
+const appendBadge   = document.getElementById('appendBadge');
+const unlockOverlay = document.getElementById('unlockOverlay');
+const unlockBtn     = document.getElementById('unlockBtn');
+const muteAllBtn    = document.getElementById('muteAllBtn');
+
+ringFill.style.strokeDasharray  = CIRC;
+ringFill.style.strokeDashoffset = 0;
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let totalSeconds  = 60;
+let remaining     = 60;
+let running       = false;
+let tickTimeoutId = null;
+let tickStartAt   = 0;
+let ticksElapsed  = 0;
+let audioCtx      = null;
+let audioOut      = null;   // DynamicsCompressor → destination
+let heartbeatId   = null;
+let badgeTimer    = null;
+let muteAll       = false;
+let tickIndex     = 0;      // drives tick/tock alternation
+
+// ── Audio graph ────────────────────────────────────────────────────────────────
+function buildAudioGraph() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  const comp = audioCtx.createDynamicsCompressor();
+  comp.threshold.value = -3;
+  comp.knee.value      = 2;
+  comp.ratio.value     = 6;
+  comp.attack.value    = 0.001;
+  comp.release.value   = 0.08;
+
+  const master = audioCtx.createGain();
+  master.gain.value = 1.0;
+  comp.connect(master);
+  master.connect(audioCtx.destination);
+  audioOut = comp;
+
+  // Keep-alive: a near-silent oscillator (1 Hz, inaudible) that runs forever.
+  // This prevents iOS Safari from auto-suspending the AudioContext between ticks.
+  const keepAliveOsc  = audioCtx.createOscillator();
+  const keepAliveGain = audioCtx.createGain();
+  keepAliveGain.gain.value   = 0.00001; // effectively silent
+  keepAliveOsc.frequency.value = 1;     // 1 Hz – completely inaudible
+  keepAliveOsc.connect(keepAliveGain);
+  keepAliveGain.connect(audioCtx.destination);
+  keepAliveOsc.start();
+
+  playSilent();       // iOS unlock: silent buffer forces context into 'running'
+  startHeartbeat();   // belt-and-suspenders: periodic resume + silent ping
+}
+
+function playSilent() {
+  if (!audioCtx) return;
+  const buf = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(audioCtx.destination);
+  src.start(0);
+}
+
+function startHeartbeat() {
+  clearInterval(heartbeatId);
+  heartbeatId = setInterval(() => {
+    if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    playSilent();
+  }, 15000);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && audioCtx) audioCtx.resume();
+});
+
+// ── Unlock ─────────────────────────────────────────────────────────────────────
+function unlockAudio() {
+  buildAudioGraph();
+  audioCtx.resume().then(() => { unlockOverlay.style.display = 'none'; });
+}
+unlockBtn.addEventListener('click', unlockAudio);
+
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (!isIOS) unlockOverlay.style.display = 'none';
+
+// Returns a safe future timestamp for scheduling audio nodes.
+// 120 ms lookahead gives the context enough runway even after a brief suspension.
+// If the context is suspended, resume() is fired; the keep-alive oscillator
+// ensures it starts running again quickly.
+function readyAudio() {
+  if (!audioCtx) buildAudioGraph();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx.currentTime + 0.12;  // 120 ms lookahead
+}
+
+// ── Sound: Clock tick ─────────────────────────────────────────────────────────
+// Alternating tick (bright, ~3.5 kHz) / tock (darker, ~1.8 kHz).
+// Each is a bandpass-filtered noise burst (the escapement mechanism)
+// layered with a short decaying oscillator (mechanical body resonance).
+function playTick() {
+  if (muteAll || !tickToggle.checked) return;
+  const t      = readyAudio();
+  tickIndex++;
+
+  // ── Bandpass-filtered noise burst (escapement "click") ─────────────────────
+  const noiseDur = 0.010;  // 10 ms burst — very short like a real escapement
+  const nLen  = Math.ceil(audioCtx.sampleRate * noiseDur);
+  const nBuf  = audioCtx.createBuffer(1, nLen, audioCtx.sampleRate);
+  const nData = nBuf.getChannelData(0);
+  for (let i = 0; i < nLen; i++) nData[i] = Math.random() * 2 - 1;
+
+  const nSrc = audioCtx.createBufferSource();
+  nSrc.buffer = nBuf;
+
+  // Bandpass shapes the noise into a pitched "click"
+  const bp = audioCtx.createBiquadFilter();
+  bp.type            = 'bandpass';
+  bp.frequency.value = 3600;
+  bp.Q.value         = 3.5;
+
+  // High-shelf adds presence
+  const shelf = audioCtx.createBiquadFilter();
+  shelf.type            = 'highshelf';
+  shelf.frequency.value = 6000;
+  shelf.gain.value      = 6;
+
+  const nGain = audioCtx.createGain();
+  nGain.gain.setValueAtTime(1.0, t);
+  nGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.038);
+
+  nSrc.connect(bp); bp.connect(shelf); shelf.connect(nGain); nGain.connect(audioOut);
+  nSrc.start(t); nSrc.stop(t + 0.040);
+
+  // ── Mechanical body resonance (short decaying sine) ────────────────────────
+  const osc  = audioCtx.createOscillator();
+  const oGain = audioCtx.createGain();
+  osc.type           = 'sine';
+  osc.frequency.value = 1100;
+  oGain.gain.setValueAtTime(0.38, t);
+  oGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.028);
+  osc.connect(oGain); oGain.connect(audioOut);
+  osc.start(t); osc.stop(t + 0.030);
+}
+
+// ── Sound: Jingle ─────────────────────────────────────────────────────────────
+// Always waits for the context to be fully running before scheduling notes,
+// so the jingle never gets dropped even if the context was suspended at end-time.
+function playJingle() {
+  if (muteAll || !jingleToggle.checked) return;
+  if (!audioCtx) buildAudioGraph();
+
+  const scheduleJingle = () => {
+    const base  = audioCtx.currentTime + 0.12;
+    const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5];
+
+    notes.forEach((freq, i) => {
+      const osc  = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type   = 'triangle';
+      const t    = base + i * 0.19;
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(1.0, t + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.52);
+      osc.connect(gain); gain.connect(audioOut);
+      osc.start(t); osc.stop(t + 0.55);
+    });
+
+    const chordT = base + notes.length * 0.19 + 0.05;
+    [1046.5, 1318.5, 1567.98].forEach((freq, i) => {
+      const osc  = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type   = 'sine';
+      const t    = chordT + i * 0.04;
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.75, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+      osc.connect(gain); gain.connect(audioOut);
+      osc.start(t); osc.stop(t + 1.15);
+    });
+  };
+
+  // Gate on context state: if already running, schedule immediately;
+  // otherwise resume first so currentTime is live before we read it.
+  if (audioCtx.state === 'running') {
+    scheduleJingle();
+  } else {
+    audioCtx.resume().then(scheduleJingle);
+  }
+}
+
+// ── Sound: Append chime ───────────────────────────────────────────────────────
+function playAppendChime() {
+  if (muteAll) return;
+  const base = readyAudio();
+  [660, 990].forEach((freq, i) => {
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type   = 'sine';
+    const t    = base + i * 0.11;
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0.75, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+    osc.connect(gain); gain.connect(audioOut);
+    osc.start(t); osc.stop(t + 0.22);
+  });
+}
+
+// ── Mute all ──────────────────────────────────────────────────────────────────
+muteAllBtn.addEventListener('click', () => {
+  muteAll = !muteAll;
+  muteAllBtn.textContent = muteAll ? '🔇' : '🔊';
+});
+
+// ── Display ────────────────────────────────────────────────────────────────────
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  return `${String(m).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+}
+
+function updateDisplay() {
+  timeDisplay.textContent = formatTime(remaining);
+  const frac = totalSeconds > 0 ? remaining / totalSeconds : 0;
+  ringFill.style.strokeDashoffset = CIRC * (1 - frac);
+  const urgent = remaining <= 5 && remaining > 0;
+  timeDisplay.classList.toggle('urgent', urgent);
+  ringFill.classList.toggle('urgent', urgent);
+}
+
+function showAppendBadge(sec) {
+  clearTimeout(badgeTimer);
+  appendBadge.textContent = `+${sec}s`;
+  appendBadge.classList.add('show');
+  badgeTimer = setTimeout(() => appendBadge.classList.remove('show'), 1600);
+}
+
+// ── Button state ───────────────────────────────────────────────────────────────
+function setRunningUI(isRunning) {
+  if (isRunning) {
+    startBtn.textContent = 'Running…';
+    startBtn.className   = 'btn-primary btn-running';
+    startBtn.disabled    = true;
+    pauseBtn.textContent = 'Pause';
+    pauseBtn.disabled    = false;
+    timeLabel.textContent = 'running';
+  } else {
+    startBtn.textContent = 'Start';
+    startBtn.className   = 'btn-primary btn-start';
+    startBtn.disabled    = remaining <= 0;
+    pauseBtn.disabled    = true;
+    timeLabel.textContent = remaining > 0 ? 'paused' : "time's up";
+  }
+}
+
+// ── Drift-correcting timer ────────────────────────────────────────────────────
+function scheduleNextTick() {
+  if (!running) return;
+  const elapsed    = Date.now() - tickStartAt;
+  const nextTickMs = (ticksElapsed + 1) * 1000;
+  const delay      = Math.max(0, nextTickMs - elapsed);
+  tickTimeoutId    = setTimeout(doTick, delay);
+}
+
+function doTick() {
+  if (!running) return;
+  ticksElapsed++;
+  remaining--;
+  updateDisplay();
+
+  if (remaining <= 0) {
+    running = false;
+    clearTimeout(tickTimeoutId);
+    setRunningUI(false);
+    timeLabel.textContent  = "time's up!";
+    statusEl.className     = 'status-bar done';
+    statusEl.textContent   = "🎉 Time's up!";
+    playJingle();
+    return;
+  }
+
+  playTick();
+  if (remaining <= 5) statusEl.textContent = `⚠ Ending in ${remaining}s`;
+  scheduleNextTick();
+}
+
+// ── Timer controls ─────────────────────────────────────────────────────────────
+function startTimer() {
+  if (running || remaining <= 0) return;
+  running      = true;
+  tickStartAt  = Date.now();
+  ticksElapsed = 0;
+  setRunningUI(true);
+  statusEl.className   = 'status-bar';
+  statusEl.textContent = 'Running…';
+  scheduleNextTick();
+}
+
+function pauseTimer() {
+  if (!running) return;
+  clearTimeout(tickTimeoutId);
+  running = false;
+  setRunningUI(false);
+  statusEl.textContent = 'Paused';
+}
+
+function stopTimer(doReset = true) {
+  clearTimeout(tickTimeoutId);
+  running = false;
+  if (doReset) {
+    remaining = totalSeconds;
+    tickIndex = 0;
+    updateDisplay();
+    statusEl.className    = 'status-bar';
+    statusEl.textContent  = 'Ready to start';
+    timeLabel.textContent = 'ready';
+  }
+  setRunningUI(false);
+  startBtn.disabled = false;
+}
+
+function setDuration(sec) {
+  stopTimer(false);
+  totalSeconds  = sec;
+  remaining     = sec;
+  tickIndex     = 0;
+  updateDisplay();
+  statusEl.className    = 'status-bar';
+  statusEl.textContent  = 'Ready to start';
+  timeLabel.textContent = 'ready';
+  startBtn.disabled     = false;
+  pauseBtn.disabled     = true;
+}
+
+function appendTime(sec) {
+  if (sec < 1) return;
+  if (remaining <= 0) { setDuration(sec); return; }
+  remaining    += sec;
+  totalSeconds += sec;
+  updateDisplay();
+  showAppendBadge(sec);
+  playAppendChime();
+  if (remaining > 5) {
+    timeDisplay.classList.remove('urgent');
+    ringFill.classList.remove('urgent');
+  }
+  if (!running) startBtn.disabled = false;
+  if (statusEl.classList.contains('done')) {
+    statusEl.className    = 'status-bar';
+    statusEl.textContent  = 'Ready to start';
+    timeLabel.textContent = 'ready';
+  }
+}
+
+// ── Wire-up ────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    customInput.value = '';
+    setDuration(parseInt(btn.dataset.sec));
+  });
+});
+
+function getCustomVal() {
+  const v = parseInt(customInput.value);
+  return (v >= 1 && v <= 3600) ? v : null;
+}
+
+setCustomBtn.addEventListener('click', () => {
+  const v = getCustomVal();
+  if (!v) { customInput.focus(); return; }
+  document.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
+  setDuration(v);
+});
+
+appendBtn.addEventListener('click', () => {
+  const v = getCustomVal();
+  if (!v) { customInput.focus(); return; }
+  appendTime(v);
+});
+
+customInput.addEventListener('keydown', e => { if (e.key === 'Enter') setCustomBtn.click(); });
+
+startBtn.addEventListener('click', startTimer);
+pauseBtn.addEventListener('click', pauseTimer);
+resetBtn.addEventListener('click', () => stopTimer(true));
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+updateDisplay();
+setRunningUI(false);
+startBtn.disabled = false;
+
+// ── PWA: register service worker for offline support ──────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(() => {}); // silently ignore if not served over HTTPS/localhost
+  });
+}
+</script>
+</body>
+</html>

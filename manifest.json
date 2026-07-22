@@ -1,0 +1,20 @@
+{
+  "name": "Timer",
+  "short_name": "Timer",
+  "description": "Countdown timer with melodic tick and end jingle",
+  "start_url": "./timer.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F2F7",
+  "theme_color": "#007AFF",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "productivity"],
+  "lang": "en"
+}

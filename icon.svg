@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- iOS rounded-square background -->
+  <rect width="512" height="512" rx="114" fill="#007AFF"/>
+
+  <!-- Outer ring track -->
+  <circle cx="256" cy="278" r="148" fill="none"
+          stroke="rgba(255,255,255,0.22)" stroke-width="22"/>
+
+  <!-- Progress arc (~75 %) -->
+  <circle cx="256" cy="278" r="148" fill="none"
+          stroke="white" stroke-width="22" stroke-linecap="round"
+          stroke-dasharray="696 930"
+          transform="rotate(-90 256 278)"/>
+
+  <!-- Clock face inner fill -->
+  <circle cx="256" cy="278" r="118" fill="rgba(255,255,255,0.12)"/>
+
+  <!-- Minute hand -->
+  <line x1="256" y1="278" x2="256" y2="172"
+        stroke="white" stroke-width="18" stroke-linecap="round"/>
+  <!-- Hour hand -->
+  <line x1="256" y1="278" x2="326" y2="234"
+        stroke="white" stroke-width="18" stroke-linecap="round"/>
+  <!-- Center dot -->
+  <circle cx="256" cy="278" r="14" fill="white"/>
+
+  <!-- Top stem (timer button) -->
+  <rect x="230" y="108" width="52" height="18" rx="9" fill="white"/>
+
+  <!-- Left ear -->
+  <rect x="146" y="122" width="40" height="14" rx="7"
+        fill="white" transform="rotate(-38 146 122)"/>
+  <!-- Right ear -->
+  <rect x="330" y="122" width="40" height="14" rx="7"
+        fill="white" transform="rotate(38 370 122)"/>
+</svg>
