@@ -4,7 +4,7 @@
   "description": "Countdown timer with melodic tick and end jingle",
   "start_url": "./timer.html",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "background_color": "#F2F2F7",
   "theme_color": "#007AFF",
   "icons": [
