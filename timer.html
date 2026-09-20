@@ -17,8 +17,12 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
-  height: 100%; width: 100%;
+html {
+  height: 100%;
+  /* Prevent iOS rubber-band bounce without using position:fixed on body,
+     which breaks touch hit-testing after orientation changes */
+  overflow: hidden;
+  overscroll-behavior: none;
   background: #F2F2F7;
 }
 
@@ -26,11 +30,15 @@ html, body {
 body {
   font-family: -apple-system, 'Helvetica Neue', sans-serif;
   color: #1C1C1E;
+  background: #F2F2F7;
+  /* Use height-based containment instead of position:fixed so iOS correctly
+     recalculates touch coordinates after rotating back to portrait */
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  position: fixed;
-  inset: 0;
   /* iOS safe areas */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
@@ -951,6 +959,18 @@ resetBtn.addEventListener('click', () => stopTimer(true));
 updateDisplay();
 setRunningUI(false);
 startBtn.disabled = false;
+
+// ── Orientation change: force layout recalculation ────────────────────────────
+// iOS does not update touch hit-testing after rotation unless we trigger a reflow.
+// We listen on 'resize' (which fires after orientationchange on iOS) and nudge
+// the body height so the browser flushes stale geometry and rebuilds touch targets.
+window.addEventListener('resize', () => {
+  // Brief toggle forces iOS to recalculate all fixed/flex dimensions
+  document.body.style.height = window.innerHeight + 'px';
+  requestAnimationFrame(() => {
+    document.body.style.height = '100%';
+  });
+});
 
 // ── PWA: register service worker for offline support ──────────────────────────
 if ('serviceWorker' in navigator) {
