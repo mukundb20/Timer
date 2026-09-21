@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Timer">
+<meta name="theme-color" content="#F2F2F7">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon.svg">
+<title>Timer</title>
+<script>
+  // Register service worker before redirect so it starts caching immediately
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(function(){});
+  }
+  // Redirect to the app — replace() keeps the back button working
+  window.location.replace('./timer.html');
+</script>
+<noscript>
+  <meta http-equiv="refresh" content="0; url=./timer.html">
+</noscript>
+</head>
+<body></body>
+</html>
